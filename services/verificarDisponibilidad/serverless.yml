@@ -25,6 +25,3 @@ functions:
           arn: arn:aws:sqs:us-east-1:975050297338:agendar-citas-medicas-DEV-ColaCitasPeru
           batchSize: 10 
           maximumRetryAttempts: 3
-          filterPatterns:
-            - eventType:
-              - Verificar
