@@ -1,0 +1,133 @@
+service: agendar-citas-medicas
+
+frameworkVersion: '3'
+
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+
+package:
+  individually: true
+  exclude:
+    - node_modules/**
+
+
+custom:
+  defaultStage: ${opt:stage, 'DEV'}
+  stageDeploy: ${opt:stage, 'DEV'}
+
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  stage: ${self:custom.stageDeploy}
+  environment:
+    EVENT_BUS_NAME: ${self:service}-${self:custom.stageDeploy}-eventBus
+    DYNAMODB_TABLE: ${self:service}-${self:custom.stageDeploy}-TablaCitasMedicas
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - events:PutEvents
+      Resource:
+        - arn:aws:events:${self:provider.region}:${aws:accountId}:event-bus/${self:service}-${self:custom.stageDeploy}-eventBus
+
+functions:
+  solicitarCita:
+    handler: dist/PE/handler.solicitarCitaHandler
+    events:
+      - http:
+          path: solicitar-cita
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    # DynamoDB Table
+    TablaCitasMedicas:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        AttributeDefinitions:
+          - AttributeName: Pais
+            AttributeType: S
+          - AttributeName: UsuarioId#CitaId
+            AttributeType: S
+          - AttributeName: Estado
+            AttributeType: S
+          - AttributeName: FechaHora
+            AttributeType: S
+        KeySchema:
+          - AttributeName: Pais
+            KeyType: HASH
+          - AttributeName: UsuarioId#CitaId
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+        GlobalSecondaryIndexes:
+          - IndexName: EstadoIndex
+            KeySchema:
+              - AttributeName: Pais
+                KeyType: HASH
+              - AttributeName: Estado
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: FechaCitaIndex
+            KeySchema:
+              - AttributeName: Pais
+                KeyType: HASH
+              - AttributeName: FechaHora
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+
+
+    # SQS Queue for Peru
+    ColaCitasPeru:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-${self:custom.stageDeploy}-ColaCitasPeru
+
+    # EventBridge
+    EventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: ${self:provider.environment.EVENT_BUS_NAME}
+
+    # Rule to route events to Peru SQS
+    EventRulePeru:
+      Type: AWS::Events::Rule
+      Properties:
+        EventBusName: !Ref EventBus
+        Name: routeToPeruSQS
+        EventPattern:
+          source:
+            - custom.solicitarCita
+          detail:
+            pais:
+              - PE
+        Targets:
+          - Arn:
+              Fn::GetAtt:
+                - ColaCitasPeru
+                - Arn
+            Id: TargetPeru
+
+    # SQS Policy for EventBridge
+    SqsSendMessagePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - !Ref ColaCitasPeru
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: SQS:SendMessage
+              Resource: !GetAtt ColaCitasPeru.Arn
+
+ 

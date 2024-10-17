@@ -1,0 +1,30 @@
+service: verificar-disponibilidad
+
+frameworkVersion: '3'
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+
+package:
+  individually: true
+  exclude:
+    - node_modules/**
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  stage: ${opt:stage, 'DEV'}
+
+functions:
+  verificarDisponibilidad:
+    handler: dist/PE/handler.verificarDisponibilidadHandler
+    events:
+      - sqs:
+          arn: arn:aws:sqs:us-east-1:975050297338:agendar-citas-medicas-DEV-ColaCitasPeru
+          batchSize: 10 
+          maximumRetryAttempts: 3
+          filterPatterns:
+            - eventType:
+              - Verificar

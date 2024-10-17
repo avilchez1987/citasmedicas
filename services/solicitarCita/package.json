@@ -1,0 +1,24 @@
+{
+  "name": "solicitarcita",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "aws-sdk": "^2.1691.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/aws-sdk": "^2.7.0",
+    "@types/node": "^22.7.6",
+    "@types/uuid": "^10.0.0",
+    "serverless-plugin-common-excludes": "^4.0.0",
+    "serverless-plugin-include-dependencies": "^6.1.1"
+  }
+}
